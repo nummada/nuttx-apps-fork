@@ -40,18 +40,42 @@ $(COAP_UNPACKNAME):
 
 $(info Salut bossean!!!!)
 
-CSRCS	= minmea/minmea.c
-CFLAGS += -std=c99
+# CSRCS	= minmea/minmea.c
+# CFLAGS += -std=c99
+
+
+COAP_CURRENT_DIR := $(shell pwd)
+COAP_UTILS_DIR := $(COAP_CURRENT_DIR)/..
+COAP_UTILS_INCLUDE_DIR := $(COAP_CURRENT_DIR)/include
+COAP_UTILS_LIB_DIR := $(COAP_CURRENT_DIR)/lib
+
+COAP_DELDIR := $(COAP_UNPACKNAME)
+COAP_DELDIR += install_coap
+COAP_DELDIR += include
+COAP_DELDIR += lib
+
 
 build-$(COAP_UNPACKNAME): $(COAP_UNPACKNAME)
 	@(echo "Building coap library")
-	mkdir $(COAP_UNPACKNAME)/install_coap
+	mkdir -p $(COAP_CURRENT_DIR)/install_coap
 	./$(COAP_UNPACKNAME)/autogen.sh
-	./$(COAP_UNPACKNAME)/configure \
-		--disable-documentation \
-		--disable-shared \
-		--disable-dtls \
-		--prefix=`pwd`/install_coap
+
+# Each command is exectued in a separate shell, so in oder to `cd` and execute
+# commands, we need to chanin the commands to the `cd` command by using `&&` bash operator
+# TODO 2: `make` this lib for the correct architecture. As of now it is being build for
+# idk, I guess x86_64 (local system architecture)
+	cd $(COAP_UNPACKNAME) && \
+		./configure \
+			--disable-documentation \
+			--disable-shared \
+			--disable-dtls \
+			--prefix=$(COAP_CURRENT_DIR)/install_coap \
+			--includedir=$(COAP_UTILS_INCLUDE_DIR) \
+			--libdir=$(COAP_UTILS_LIB_DIR) && \
+		make install
+
+# TODO 1: When is `LDLIBS` used? Because I need to link `libcoap-3.a` into the final executable
+# LDLIBS += -l$(COAP_UTILS_LIB_DIR)/libcoap-3.a
 
 clean::
 	$(call DELFILE, $(OBJS))
@@ -64,7 +88,8 @@ ifeq ($(wildcard $(COAP_UNPACKNAME)/.git),)
 context:: build-$(COAP_UNPACKNAME) # also build coap
 
 distclean::
-	$(call DELDIR, $(COAP_UNPACKNAME))
+	$(call DELDIR, $(COAP_DELDIR))
+	$(call DELFILE, ar-lib)
 endif
 
 include $(APPDIR)/Application.mk

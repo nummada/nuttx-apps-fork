@@ -25,7 +25,9 @@
 #include <nuttx/config.h>
 #include <stdio.h>
 
-#include <coap.h>
+// #define BSD 322
+
+#include <coap3/coap.h>
 
 /****************************************************************************
  * Public Functions
@@ -37,7 +39,12 @@
 
 int main(int argc, FAR char *argv[])
 {
-  printf("Hello, World!! vers2\n");
-  // printf("I found this: %s\n", LIBCOAP_PACKAGE_BUGREPORT);
-  return 0;
+	coap_context_t *ctx = NULL;
+    coap_address_t bind_addr;
+
+    coap_address_init(&bind_addr);
+
+	printf("Hello, World!! vers2\n");
+	// printf("I found this: %s\n", LIBCOAP_PACKAGE_BUGREPORT);
+	return 0;
 }
