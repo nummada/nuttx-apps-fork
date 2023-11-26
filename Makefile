@@ -155,6 +155,7 @@ endif # CONFIG_BUILD_KERNEL
 dirlinks:
 	$(Q) $(MAKE) -C platform dirlinks
 
+# `context_all` trece prin toate configured apps si pentru fiecare apeleaza regula context
 context_all: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_context)
 register_all: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_register)
 

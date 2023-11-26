@@ -1,0 +1,13 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config COAPUTILS_COAP_LIB
+	bool "Coap Library"
+	default n
+	---help---
+		TODO coap lib
+
+if COAPUTILS_COAP_LIB
+endif
