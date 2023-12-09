@@ -24,9 +24,10 @@
 
 #include <nuttx/config.h>
 
-#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <unistd.h>
+#include <termios.h>
 
 #include "fsutils/passwd.h"
 #ifdef CONFIG_NSH_CLE
@@ -37,6 +38,7 @@
 
 #include "nsh.h"
 #include "nsh_console.h"
+#include "nshlib/nshlib.h"
 
 #ifdef CONFIG_NSH_CONSOLE_LOGIN
 
@@ -124,7 +126,7 @@ static void nsh_token(FAR struct console_stdio_s *pstate,
 
   /* Copied the token into the buffer */
 
-  strncpy(buffer, start, buflen);
+  strlcpy(buffer, start, buflen);
 }
 
 /****************************************************************************
@@ -147,6 +149,7 @@ int nsh_login(FAR struct console_stdio_s *pstate)
 #ifdef CONFIG_NSH_PLATFORM_CHALLENGE
   char challenge[128];
 #endif
+  struct termios cfg;
   int ret;
   int i;
 
@@ -164,13 +167,12 @@ int nsh_login(FAR struct console_stdio_s *pstate)
       /* Ask for the login username */
 
       username[0] = '\0';
-      fputs(g_userprompt, pstate->cn_outstream);
-      fflush(pstate->cn_outstream);
+      write(OUTFD(pstate), g_userprompt, strlen(g_userprompt));
 
       /* readline() returns EOF on failure */
 
-      ret = readline(pstate->cn_line, CONFIG_NSH_LINELEN,
-                     INSTREAM(pstate), OUTSTREAM(pstate));
+      ret = readline_fd(pstate->cn_line, CONFIG_NSH_LINELEN,
+                        INFD(pstate), OUTFD(pstate));
       if (ret != EOF)
         {
           /* Parse out the username */
@@ -186,18 +188,40 @@ int nsh_login(FAR struct console_stdio_s *pstate)
 
 #ifdef CONFIG_NSH_PLATFORM_CHALLENGE
       platform_challenge(challenge, sizeof(challenge));
-      fputs(challenge, pstate->cn_outstream);
-      fflush(pstate->cn_outstream);
+      write(OUTFD(pstate), challenge, strlen(challenge));
 #endif
 
       /* Ask for the login password */
 
-      fputs(g_passwordprompt, pstate->cn_outstream);
-      fflush(pstate->cn_outstream);
+      write(OUTFD(pstate), g_passwordprompt, strlen(g_passwordprompt));
+
+      /* Disable ECHO if its a tty device */
+
+      if (isatty(INFD(pstate)))
+        {
+          if (tcgetattr(INFD(pstate), &cfg) == 0)
+            {
+              cfg.c_lflag &= ~ECHO;
+              tcsetattr(INFD(pstate), TCSANOW, &cfg);
+            }
+        }
 
       password[0] = '\0';
-      if (fgets(pstate->cn_line, CONFIG_NSH_LINELEN,
-                INSTREAM(pstate)) != NULL)
+      ret = readline_fd(pstate->cn_line, CONFIG_NSH_LINELEN,
+                        INFD(pstate), -1);
+
+      /* Enable echo again after password */
+
+      if (isatty(INFD(pstate)))
+        {
+          if (tcgetattr(INFD(pstate), &cfg) == 0)
+            {
+              cfg.c_lflag |= ECHO;
+              tcsetattr(INFD(pstate), TCSANOW, &cfg);
+            }
+        }
+
+      if (ret > 0)
         {
           /* Parse out the password */
 
@@ -224,14 +248,13 @@ int nsh_login(FAR struct console_stdio_s *pstate)
 #  error No user verification method selected
 #endif
             {
-              fputs(g_loginsuccess, pstate->cn_outstream);
-              fflush(pstate->cn_outstream);
+              write(OUTFD(pstate), g_loginsuccess, strlen(g_loginsuccess));
               return OK;
             }
           else
             {
-              fputs(g_badcredentials, pstate->cn_outstream);
-              fflush(pstate->cn_outstream);
+              write(OUTFD(pstate), g_badcredentials,
+                    strlen(g_badcredentials));
 #if CONFIG_NSH_LOGIN_FAILDELAY > 0
               usleep(CONFIG_NSH_LOGIN_FAILDELAY * 1000L);
 #endif
@@ -241,8 +264,7 @@ int nsh_login(FAR struct console_stdio_s *pstate)
 
   /* Too many failed login attempts */
 
-  fputs(g_loginfailure, pstate->cn_outstream);
-  fflush(pstate->cn_outstream);
+  write(OUTFD(pstate), g_loginfailure, strlen(g_loginfailure));
   return -1;
 }
 

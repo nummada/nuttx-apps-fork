@@ -335,8 +335,7 @@ static void tab_completion(FAR struct rl_common_s *vtbl, char *buf,
             }
 
 #endif
-          strncpy(buf, tmp_name, buflen - 1);
-
+          strlcpy(buf, tmp_name, buflen);
           name_len = strlen(tmp_name);
 
           /* Output the original prompt */
@@ -667,13 +666,7 @@ ssize_t readline_common(FAR struct rl_common_s *vtbl, FAR char *buf,
        * others both.
        */
 
-#if  defined(CONFIG_EOL_IS_LF) || defined(CONFIG_EOL_IS_BOTH_CRLF)
       else if (ch == '\n')
-#elif defined(CONFIG_EOL_IS_CR)
-      else if (ch == '\r')
-#elif defined(CONFIG_EOL_IS_EITHER_CRLF)
-      else if (ch == '\n' || ch == '\r')
-#endif
         {
 #ifdef CONFIG_READLINE_CMD_HISTORY
           /* Save history of command, only if there was something
@@ -714,11 +707,6 @@ ssize_t readline_common(FAR struct rl_common_s *vtbl, FAR char *buf,
           buf[nch++] = '\n';
           buf[nch]   = '\0';
 
-#ifdef CONFIG_READLINE_ECHO
-          /* Echo the newline to the console */
-
-          RL_PUTC(vtbl, '\n');
-#endif
           return nch;
         }
 
@@ -730,11 +718,6 @@ ssize_t readline_common(FAR struct rl_common_s *vtbl, FAR char *buf,
         {
           buf[nch++] = ch;
 
-#ifdef CONFIG_READLINE_ECHO
-          /* Echo the character to the console */
-
-          RL_PUTC(vtbl, ch);
-#endif
           /* Check if there is room for another character and the line's
            * null terminator.  If not then we have to end the line now.
            */

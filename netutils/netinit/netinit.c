@@ -33,19 +33,19 @@
 #  define CONFIG_DEBUG_NET 1
 #endif
 
-#include <sys/ioctl.h>
-
-#include <stdint.h>
-#include <string.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <signal.h>
+#include <arpa/inet.h>
 #include <assert.h>
 #include <debug.h>
-
 #include <net/if.h>
-#include <arpa/inet.h>
 #include <netinet/in.h>
+#include <pthread.h>
+#include <sched.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 #include <nuttx/net/mii.h>
 
@@ -207,8 +207,13 @@
  * signal indicating a change in network status.
  */
 
-#define LONG_TIME_SEC    (60*60) /* One hour in seconds */
-#define SHORT_TIME_SEC   (2)     /* 2 seconds */
+#ifdef CONFIG_SYSTEM_TIME64
+#  define LONG_TIME_SEC    (60*60)   /* One hour in seconds */
+#else
+#  define LONG_TIME_SEC    (5*60)    /* Five minutes in seconds */
+#endif
+
+#define SHORT_TIME_SEC     (2)       /* 2 seconds */
 
 /****************************************************************************
  * Private Data
@@ -785,7 +790,7 @@ static int netinit_monitor(void)
       /* Configure to receive a signal on changes in link status */
 
       memset(&ifr, 0, sizeof(struct ifreq));
-      strncpy(ifr.ifr_name, NET_DEVNAME, IFNAMSIZ);
+      strlcpy(ifr.ifr_name, NET_DEVNAME, IFNAMSIZ);
 
       ifr.ifr_mii_notify_event.sigev_notify = SIGEV_SIGNAL;
       ifr.ifr_mii_notify_event.sigev_signo  = CONFIG_NETINIT_SIGNO;
@@ -873,6 +878,11 @@ static int netinit_monitor(void)
                   goto errout_with_notification;
                 }
 
+#ifdef CONFIG_NET_ICMPv6_AUTOCONF
+              /* Perform ICMPv6 auto-configuration */
+
+              netlib_icmpv6_autoconfiguration(ifr.ifr_name);
+#endif
               /* And wait for a short delay.  We will want to recheck the
                * link status again soon.
                */

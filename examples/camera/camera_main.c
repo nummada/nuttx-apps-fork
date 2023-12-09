@@ -32,6 +32,7 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <nuttx/video/video.h>
 
@@ -757,7 +758,7 @@ exit_this_app:
   free_buffer(buffers_still, STILL_BUFNUM);
 
 exit_without_cleaning_buffer:
-  video_uninitialize();
+  video_uninitialize("/dev/video");
 
 exit_without_cleaning_videodriver:
 #ifdef CONFIG_EXAMPLES_CAMERA_OUTPUT_LCD

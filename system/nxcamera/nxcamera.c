@@ -35,12 +35,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <poll.h>
 
 #include <nuttx/queue.h>
 #include <nuttx/video/video.h>
 #include <nuttx/video/fb.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/param.h>
 #include <sys/types.h>
 
 #include <system/nxcamera.h>
@@ -58,33 +61,127 @@
 #define NXCAMERA_STATE_LOOPING   2
 #define NXCAMERA_STATE_PAUSED    3
 
-#ifndef MIN
-#  define MIN(a, b)              (((a) < (b)) ? (a) : (b))
-#endif
-
-#define convert_frame            ConvertToARGB
-
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
 
+/****************************************************************************
+ * pan_display
+ ****************************************************************************/
+
+static void pan_display(int fb_device, FAR struct fb_planeinfo_s *plane_info)
+{
+  struct pollfd pfd;
+  int ret;
+  pfd.fd = fb_device;
+  pfd.events = POLLOUT;
+
+  ret = poll(&pfd, 1, 0);
+
+  if (ret > 0)
+    {
+      ioctl(fb_device, FBIOPAN_DISPLAY, plane_info);
+    }
+}
+
 static int show_image(FAR struct nxcamera_s *pcam, FAR v4l2_buffer_t *buf)
 {
 #ifdef CONFIG_LIBYUV
-  return convert_frame(pcam->bufs[buf->index],
-                       pcam->buf_sizes[buf->index],
-                       pcam->display_pinfo.fbmem,
-                       pcam->display_pinfo.stride,
-                       0,
-                       0,
-                       pcam->fmt.fmt.pix.width,
-                       pcam->fmt.fmt.pix.height,
-                       pcam->fmt.fmt.pix.width,
-                       pcam->fmt.fmt.pix.height,
-                       0,
-                       pcam->fmt.fmt.pix.pixelformat);
+  if (pcam->display_vinfo.fmt == FB_FMT_RGB32)
+    {
+      return ConvertToARGB(pcam->bufs[buf->index],
+                           pcam->buf_sizes[buf->index],
+                           pcam->display_pinfo.fbmem,
+                           pcam->display_pinfo.stride,
+                           0,
+                           0,
+                           pcam->fmt.fmt.pix.width,
+                           pcam->fmt.fmt.pix.height,
+                           pcam->fmt.fmt.pix.width,
+                           pcam->fmt.fmt.pix.height,
+                           0,
+                           pcam->fmt.fmt.pix.pixelformat);
+    }
+  else if (pcam->display_vinfo.fmt == FB_FMT_RGB16_565)
+    {
+      if (pcam->fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_YUV420)
+        {
+          return ConvertFromI420(pcam->bufs[buf->index],
+                                 pcam->fmt.fmt.pix.width,
+                                 &pcam->bufs[buf->index][
+                                            pcam->fmt.fmt.pix.width *
+                                            pcam->fmt.fmt.pix.height],
+                                 pcam->fmt.fmt.pix.width / 2,
+                                 &pcam->bufs[buf->index][
+                                      pcam->fmt.fmt.pix.width *
+                                      pcam->fmt.fmt.pix.height * 5 / 4],
+                                 pcam->fmt.fmt.pix.width / 2,
+                                 pcam->display_pinfo.fbmem,
+                                 pcam->display_pinfo.stride,
+                                 pcam->fmt.fmt.pix.width,
+                                 pcam->fmt.fmt.pix.height,
+                                 V4L2_PIX_FMT_RGB565);
+        }
+      else
+        {
+          int ret;
+          FAR uint8_t *dst = malloc(pcam->fmt.fmt.pix.width *
+                                    pcam->fmt.fmt.pix.height * 3 / 2);
+          if (!dst)
+            {
+              return -ENOMEM;
+            }
+
+          ret = ConvertToI420(pcam->bufs[buf->index],
+                              pcam->buf_sizes[buf->index],
+                              dst,
+                              pcam->fmt.fmt.pix.width,
+                              &dst[pcam->fmt.fmt.pix.width *
+                                        pcam->fmt.fmt.pix.height],
+                              pcam->fmt.fmt.pix.width / 2,
+                              &dst[pcam->fmt.fmt.pix.width *
+                                        pcam->fmt.fmt.pix.height * 5 / 4],
+                              pcam->fmt.fmt.pix.width / 2,
+                              0,
+                              0,
+                              pcam->fmt.fmt.pix.width,
+                              pcam->fmt.fmt.pix.height,
+                              pcam->fmt.fmt.pix.width,
+                              pcam->fmt.fmt.pix.height,
+                              0,
+                              pcam->fmt.fmt.pix.pixelformat);
+          if (ret < 0)
+            {
+              goto err;
+            }
+
+          ret = ConvertFromI420(dst,
+                                pcam->fmt.fmt.pix.width,
+                                &dst[pcam->fmt.fmt.pix.width *
+                                            pcam->fmt.fmt.pix.height],
+                                pcam->fmt.fmt.pix.width / 2,
+                                &dst[pcam->fmt.fmt.pix.width *
+                                     pcam->fmt.fmt.pix.height * 5 / 4],
+                                pcam->fmt.fmt.pix.width / 2,
+                                pcam->display_pinfo.fbmem,
+                                pcam->display_pinfo.stride,
+                                pcam->fmt.fmt.pix.width,
+                                pcam->fmt.fmt.pix.height,
+                                V4L2_PIX_FMT_RGB565);
+          if (ret < 0)
+            {
+              goto err;
+            }
+
+err:
+          free(dst);
+          return ret;
+        }
+    }
+
+  return 0;
 #else
-  uint32_t *pbuf = pcam->bufs[buf->index];
+  FAR uint32_t *pbuf = (FAR uint32_t *)pcam->bufs[buf->index];
   vinfo("show image from %p: %" PRIx32 " %" PRIx32, pbuf, pbuf[0], pbuf[1]);
   return 0;
 #endif
@@ -165,6 +262,36 @@ static int nxcamera_opendevice(FAR struct nxcamera_s *pcam)
     }
 
   return -ENODEV;
+}
+
+/****************************************************************************
+ * Name: nxcameraer_jointhread
+ ****************************************************************************/
+
+static void nxcamera_jointhread(FAR struct nxcamera_s *pcam)
+{
+  FAR void *value;
+  int id = 0;
+
+  if (gettid() == pcam->loop_id)
+    {
+      return;
+    }
+
+  pthread_mutex_lock(&pcam->mutex);
+
+  if (pcam->loop_id > 0)
+    {
+      id = pcam->loop_id;
+      pcam->loop_id = 0;
+    }
+
+  pthread_mutex_unlock(&pcam->mutex);
+
+  if (id > 0)
+    {
+      pthread_join(id, &value);
+    }
 }
 
 /****************************************************************************
@@ -274,6 +401,11 @@ static void *nxcamera_loopthread(pthread_addr_t pvarg)
           goto err_out;
         }
 
+      if (pcam->display_pinfo.yres_virtual > pcam->display_vinfo.yres)
+        {
+          pan_display(pcam->display_fd, &pcam->display_pinfo);
+        }
+
       ret = ioctl(pcam->capture_fd, VIDIOC_QBUF, (uintptr_t)&buf);
       if (ret < 0)
         {
@@ -378,8 +510,7 @@ int nxcamera_setdevice(FAR struct nxcamera_s *pcam,
 
 int nxcamera_setfb(FAR struct nxcamera_s *pcam, FAR const char *device)
 {
-  int                   temp_fd;
-  struct fb_videoinfo_s vinfo;
+  int temp_fd;
 
   DEBUGASSERT(pcam != NULL);
   DEBUGASSERT(device != NULL);
@@ -396,7 +527,8 @@ int nxcamera_setfb(FAR struct nxcamera_s *pcam, FAR const char *device)
 
   /* Validate it's a fb device by issuing an FBIOGET_VIDEOINFO ioctl */
 
-  if (ioctl(temp_fd, FBIOGET_VIDEOINFO, (uintptr_t)&vinfo) != OK)
+  if (ioctl(temp_fd, FBIOGET_VIDEOINFO,
+            (uintptr_t)&pcam->display_vinfo) != OK)
     {
       /* Not an Video device! */
 
@@ -408,7 +540,7 @@ int nxcamera_setfb(FAR struct nxcamera_s *pcam, FAR const char *device)
 
   close(temp_fd);
 
-  if (vinfo.nplanes == 0)
+  if (pcam->display_vinfo.nplanes == 0)
     {
       return -ENODEV;
     }
@@ -477,7 +609,6 @@ int nxcamera_setfile(FAR struct nxcamera_s *pcam, FAR const char *pfile,
 int nxcamera_stop(FAR struct nxcamera_s *pcam)
 {
   struct video_msg_s term_msg;
-  FAR void           *value;
 
   DEBUGASSERT(pcam != NULL);
 
@@ -501,8 +632,7 @@ int nxcamera_stop(FAR struct nxcamera_s *pcam)
 
   /* Join the thread.  The thread will do all the cleanup. */
 
-  pthread_join(pcam->loop_id, &value);
-  pcam->loop_id = 0;
+  nxcamera_jointhread(pcam);
 
   return OK;
 }
@@ -536,7 +666,6 @@ int nxcamera_stream(FAR struct nxcamera_s *pcam,
   struct mq_attr             attr;
   struct sched_param         sparam;
   pthread_attr_t             tattr;
-  FAR void                   *value;
   int                        ret;
   int                        i;
   struct v4l2_buffer         buf;
@@ -681,10 +810,7 @@ int nxcamera_stream(FAR struct nxcamera_s *pcam,
    * to perform clean-up.
    */
 
-  if (pcam->loop_id != 0)
-    {
-      pthread_join(pcam->loop_id, &value);
-    }
+  nxcamera_jointhread(pcam);
 
   pthread_attr_init(&tattr);
   sparam.sched_priority = sched_get_priority_max(SCHED_FIFO) - 9;
@@ -792,23 +918,15 @@ FAR struct nxcamera_s *nxcamera_create(void)
 
 void nxcamera_release(FAR struct nxcamera_s *pcam)
 {
-  FAR void *value;
   int      refcount;
+
+  /* Check if there was a previous thread and join it if there was */
+
+  nxcamera_jointhread(pcam);
 
   /* Lock the mutex */
 
   pthread_mutex_lock(&pcam->mutex);
-
-  /* Check if there was a previous thread and join it if there was */
-
-  if (pcam->loop_id != 0)
-    {
-      pthread_mutex_unlock(&pcam->mutex);
-      pthread_join(pcam->loop_id, &value);
-      pcam->loop_id = 0;
-
-      pthread_mutex_lock(&pcam->mutex);
-    }
 
   /* Reduce the reference count */
 

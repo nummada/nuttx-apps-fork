@@ -22,9 +22,11 @@
 #include <err.h>
 #include <stdio.h>
 #include <fcntl.h>
-#include <crypto/cryptodev.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/param.h>
+#include <crypto/cryptodev.h>
 #include <crypto/md5.h>
 #include <crypto/sha1.h>
 #include <crypto/sha2.h>
@@ -95,10 +97,17 @@ int syshmac(int mac, FAR const char *key, size_t keylen,
   struct session_op session;
   struct crypt_op cryp;
   int cryptodev_fd = -1;
+  int fd = -1;
 
-  if ((cryptodev_fd = open("/dev/crypto", O_RDWR, 0)) < 0)
+  if ((fd = open("/dev/crypto", O_RDWR, 0)) < 0)
     {
       warn("/dev/crypto");
+      goto err;
+    }
+
+  if (ioctl(fd, CRIOGET, &cryptodev_fd) == -1)
+    {
+      warn("CRIOGET");
       goto err;
     }
 
@@ -135,11 +144,17 @@ int syshmac(int mac, FAR const char *key, size_t keylen,
     };
 
   close(cryptodev_fd);
+  close(fd);
   return 0;
 err:
   if (cryptodev_fd != -1)
     {
       close(cryptodev_fd);
+    }
+
+  if (fd != -1)
+    {
+      close(fd);
     }
 
   return 1;
@@ -178,7 +193,7 @@ int main(void)
 {
   char output[32];
   int ret = 0;
-  for (int i = 0; i < sizeof(testcase) / sizeof(struct tb); i++)
+  for (int i = 0; i < nitems(testcase); i++)
     {
       ret += syshmac(CRYPTO_MD5_HMAC, testcase[i].key,
                      testcase[i].keylen,
@@ -201,7 +216,7 @@ int main(void)
         }
     }
 
-  for (int i = 0; i < sizeof(testcase) / sizeof(struct tb); i++)
+  for (int i = 0; i < nitems(testcase); i++)
     {
       ret = syshmac(CRYPTO_SHA1_HMAC, testcase[i].key,
                     testcase[i].keylen,
@@ -224,7 +239,7 @@ int main(void)
         }
     }
 
-  for (int i = 0; i < sizeof(testcase) / sizeof(struct tb); i++)
+  for (int i = 0; i < nitems(testcase); i++)
     {
       ret = syshmac(CRYPTO_SHA2_256_HMAC, testcase[i].key,
                     testcase[i].keylen,

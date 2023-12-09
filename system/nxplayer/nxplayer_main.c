@@ -415,7 +415,7 @@ static int nxplayer_cmd_bass(FAR struct nxplayer_s *pplayer, char *parg)
     {
       /* Get the level and range percentage value from the argument */
 
-      level_percent = (uint8_t) atoi(parg);
+      level_percent = (uint8_t)strtoul(parg, NULL, 10);
       nxplayer_setbass(pplayer, level_percent);
     }
 
@@ -445,7 +445,7 @@ static int nxplayer_cmd_treble(FAR struct nxplayer_s *pplayer, char *parg)
     {
       /* Get the level and range percentage value from the argument */
 
-      level_percent = (uint8_t) atoi(parg);
+      level_percent = (uint8_t)strtoul(parg, NULL, 10);
       nxplayer_settreble(pplayer, level_percent);
     }
 
@@ -476,7 +476,7 @@ static int nxplayer_cmd_balance(FAR struct nxplayer_s *pplayer, char *parg)
     {
       /* Get the percentage value from the argument */
 
-      percent = (uint16_t) (atof(parg) * 10.0);
+      percent = (uint16_t)(strtof(parg, NULL) * 10.0f);
       nxplayer_setbalance(pplayer, percent);
     }
 
@@ -770,7 +770,8 @@ int main(int argc, FAR char *argv[])
 
       /* Read a line from the terminal */
 
-      len = readline(buffer, sizeof(buffer), stdin, stdout);
+      len = readline_stream(buffer, sizeof(buffer),
+                            stdin, stdout);
       if (len > 0)
         {
           buffer[len] = '\0';
@@ -836,8 +837,6 @@ int main(int argc, FAR char *argv[])
     }
 
   /* Release the NxPlayer context */
-
-  /* nxplayer_detach(pplayer); */
 
   nxplayer_release(pplayer);
 

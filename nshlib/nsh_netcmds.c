@@ -28,6 +28,7 @@
 
 #include <nuttx/compiler.h>
 
+#include <sys/param.h>
 #include <sys/stat.h>    /* Needed for open */
 #include <stdint.h>
 #include <stdbool.h>
@@ -116,12 +117,6 @@
 #  endif
 #endif
 
-/* Get the larger value */
-
-#ifndef MAX
-#  define MAX(a,b) ((a) > (b) ? (a) : (b))
-#endif
-
 /****************************************************************************
  * Private Types
  ****************************************************************************/
@@ -172,7 +167,7 @@ static inline void net_statistics(FAR struct nsh_vtbl_s *vtbl)
   nsh_catfile(vtbl, "ifconfig", CONFIG_NSH_PROC_MOUNTPOINT "/net/stat");
 }
 #else
-# define net_statistics(vtbl)
+#  define net_statistics(vtbl)
 #endif
 
 /****************************************************************************
@@ -555,10 +550,15 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 #ifdef CONFIG_NET_IPv4
   struct in_addr addr;
   in_addr_t gip = INADDR_ANY;
+  in_addr_t mip;
 #endif
 #ifdef CONFIG_NET_IPv6
   struct in6_addr addr6;
   struct in6_addr gip6 = IN6ADDR_ANY_INIT;
+  FAR char *preflen = NULL;
+#  ifdef CONFIG_NETDEV_MULTIPLE_IPv6
+  bool remove = false;
+#  endif
 #endif
   int i;
   FAR char *ifname = NULL;
@@ -584,6 +584,7 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
   FAR void *handle;
 #endif
   int ret;
+  int mtu = 0;
 
   /* With one or no arguments, ifconfig simply shows the status of the
    * network device:
@@ -594,6 +595,11 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 
   if (argc <= 2)
     {
+      if (argc == 2)
+        {
+          return ifconfig_callback(vtbl, argv[1]);
+        }
+
       ret = nsh_foreach_netdev(ifconfig_callback, vtbl, "ifconfig");
       if (ret < 0)
         {
@@ -665,6 +671,21 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 #endif
                 }
 
+#ifdef CONFIG_NET_IPv6
+              else if (!strcmp(tmp, "prefixlen"))
+                {
+                  if (argc - 1 >= i + 1)
+                    {
+                      preflen = argv[i + 1];
+                      i++;
+                    }
+                  else
+                    {
+                      badarg = true;
+                    }
+                }
+#endif
+
 #ifdef HAVE_HWADDR
               /* REVISIT: How will we handle Ethernet and SLIP together? */
 
@@ -698,8 +719,40 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
                     }
                 }
 #endif
-              else if (i == 2)
+              else if (!strcmp(tmp, "add"))
                 {
+#if defined(CONFIG_NET_IPv6) && defined(CONFIG_NETDEV_MULTIPLE_IPv6)
+                  remove = false;
+                  continue;
+                }
+              else if (!strcmp(tmp, "del"))
+                {
+                  remove = true;
+#endif
+                  continue;
+                }
+              else if (!strcmp(tmp, "mtu"))
+                {
+                  if (argc - 1 >= i + 1)
+                    {
+                      mtu = atoi(argv[i + 1]);
+                      i++;
+                      if (mtu < 1280)
+                        {
+                          mtu = 1280;
+                        }
+                    }
+                  else
+                    {
+                      badarg = true;
+                    }
+                }
+              else if (hostip == NULL && i <= 4)
+                {
+                  /* Let first non-option be host ip, to support inet/inet6
+                   * options before address.
+                   */
+
                   hostip = tmp;
                 }
               else
@@ -732,6 +785,12 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
     }
 #endif
 
+  if (mtu != 0)
+    {
+      netlib_set_mtu(ifname, mtu);
+      return OK;
+    }
+
   /* Set IP address */
 
 #ifdef CONFIG_NET_IPv6
@@ -743,11 +802,22 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
         {
           /* REVISIT: Should DHCPC check be used here too? */
 
+          if ((tmp = strchr(hostip, '/')) != NULL)
+            {
+              *tmp = 0;
+              if (preflen == NULL)
+                {
+                  preflen = tmp + 1;
+                }
+            }
+
           ninfo("Host IP: %s\n", hostip);
           inet_pton(AF_INET6, hostip, &addr6);
         }
 
+#ifndef CONFIG_NETDEV_MULTIPLE_IPv6
       netlib_set_ipv6addr(ifname, &addr6);
+#endif
     }
 #endif /* CONFIG_NET_IPv6 */
 
@@ -786,6 +856,79 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
     }
 #endif /* CONFIG_NET_IPv4 */
 
+  /* Set network mask */
+
+#ifdef CONFIG_NET_IPv6
+#ifdef CONFIG_NET_IPv4
+  if (inet6)
+#endif
+    {
+      struct in6_addr mask6;
+#ifdef CONFIG_NETDEV_MULTIPLE_IPv6
+      uint8_t plen;
+#endif
+      if (mask != NULL)
+        {
+          ninfo("Netmask: %s\n", mask);
+          inet_pton(AF_INET6, mask, &mask6);
+        }
+      else if (preflen != NULL)
+        {
+          ninfo("Prefixlen: %s\n", preflen);
+          netlib_prefix2ipv6netmask(atoi(preflen), &mask6);
+        }
+      else
+        {
+          ninfo("Netmask: Default\n");
+          inet_pton(AF_INET6, "ffff:ffff:ffff:ffff::", &mask6);
+        }
+
+#ifdef CONFIG_NETDEV_MULTIPLE_IPv6
+      plen = netlib_ipv6netmask2prefix(mask6.in6_u.u6_addr16);
+      if (remove)
+        {
+          ret = netlib_del_ipv6addr(ifname, &addr6, plen);
+        }
+      else
+        {
+          ret = netlib_add_ipv6addr(ifname, &addr6, plen);
+        }
+
+      if (ret < 0)
+        {
+          perror("Failed to manage IPv6 address");
+
+          /* REVISIT: Should we return ERROR or just let it go? */
+
+          return ERROR;
+        }
+#else
+      netlib_set_ipv6netmask(ifname, &mask6);
+#endif /* CONFIG_NETDEV_MULTIPLE_IPv6 */
+    }
+#endif /* CONFIG_NET_IPv6 */
+
+#ifdef CONFIG_NET_IPv4
+#ifdef CONFIG_NET_IPv6
+  else
+#endif
+    {
+      if (mask != NULL)
+        {
+          ninfo("Netmask: %s\n", mask);
+          addr.s_addr = inet_addr(mask);
+        }
+      else
+        {
+          ninfo("Netmask: Default\n");
+          addr.s_addr = inet_addr("255.255.255.0");
+        }
+
+      mip = addr.s_addr;
+      netlib_set_ipv4netmask(ifname, &addr);
+    }
+#endif /* CONFIG_NET_IPv4 */
+
   /* Set gateway */
 
 #ifdef CONFIG_NET_IPv6
@@ -818,61 +961,19 @@ int cmd_ifconfig(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
         }
       else
         {
-          if (gip != 0)
+          if (gip != INADDR_ANY)
             {
               ninfo("Gateway: default\n");
-              gip  = NTOHL(gip);
-              gip &= ~0x000000ff;
+              gip  = ntohl(gip);
+              gip &= ntohl(mip);
               gip |= 0x00000001;
-              gip  = HTONL(gip);
+              gip  = htonl(gip);
             }
 
           addr.s_addr = gip;
         }
 
       netlib_set_dripv4addr(ifname, &addr);
-    }
-#endif /* CONFIG_NET_IPv4 */
-
-  /* Set network mask */
-
-#ifdef CONFIG_NET_IPv6
-#ifdef CONFIG_NET_IPv4
-  if (inet6)
-#endif
-    {
-      if (mask != NULL)
-        {
-          ninfo("Netmask: %s\n", mask);
-          inet_pton(AF_INET6, mask, &addr6);
-        }
-      else
-        {
-          ninfo("Netmask: Default\n");
-          inet_pton(AF_INET6, "ffff:ffff:ffff:ffff::", &addr6);
-        }
-
-      netlib_set_ipv6netmask(ifname, &addr6);
-    }
-#endif /* CONFIG_NET_IPv6 */
-
-#ifdef CONFIG_NET_IPv4
-#ifdef CONFIG_NET_IPv6
-  else
-#endif
-    {
-      if (mask != NULL)
-        {
-          ninfo("Netmask: %s\n", mask);
-          addr.s_addr = inet_addr(mask);
-        }
-      else
-        {
-          ninfo("Netmask: Default\n");
-          addr.s_addr = inet_addr("255.255.255.0");
-        }
-
-      netlib_set_ipv4netmask(ifname, &addr);
     }
 #endif /* CONFIG_NET_IPv4 */
 

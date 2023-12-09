@@ -24,14 +24,15 @@
 
 #include <nuttx/config.h>
 
+#include <assert.h>
+#include <pthread.h>
+#include <sched.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-
-#include <pthread.h>
-#include <semaphore.h>
-#include <sched.h>
+#include <sys/param.h>
 #include <time.h>
+#include <unistd.h>
 
 #ifdef CONFIG_SCHED_SPORADIC
 
@@ -48,13 +49,6 @@
 #define MAX_BUDGET    (REPL_INTERVAL / 2)
 #define PRIO_HI_NDX   0
 #define PRIO_LO_NDX   1
-
-#ifndef MIN
-#  define MIN(a,b) ((a) < (b) ? (a) : (b))
-#endif
-#ifndef MAX
-#  define MAX(a,b) ((a) > (b) ? (a) : (b))
-#endif
 
 /****************************************************************************
  * Private Data

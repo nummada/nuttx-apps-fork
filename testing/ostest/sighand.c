@@ -22,21 +22,28 @@
  * Included Files
  ****************************************************************************/
 
-#include <sys/types.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <nuttx/config.h>
+
+#include <assert.h>
+#include <errno.h>
+#include <pthread.h>
+#include <sched.h>
 #include <semaphore.h>
 #include <signal.h>
-#include <sched.h>
-#include <errno.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <nuttx/signal.h>
+
 #include "ostest.h"
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define WAKEUP_SIGNAL 17
+#define WAKEUP_SIGNAL SIGRTMIN
 #define SIGVALUE_INT  42
 
 /****************************************************************************
@@ -47,7 +54,6 @@ static sem_t sem1;
 static sem_t sem2;
 static bool sigreceived = false;
 static bool thread1exited = false;
-static bool thread2exited = false;
 
 /****************************************************************************
  * Private Functions
@@ -86,15 +92,12 @@ static void wakeup_action(int signo, siginfo_t *info, void *ucontext)
 
   /* Use of printf in a signal handler is NOT safe! It can cause deadlocks! */
 
-  printf("wakeup_action: Received signal %d\n" , signo);
-
   sigreceived = true;
 
   /* Check signo */
 
   if (signo != WAKEUP_SIGNAL)
     {
-      printf("wakeup_action: ERROR expected signo=%d\n" , WAKEUP_SIGNAL);
       ASSERT(false);
     }
 
@@ -102,27 +105,13 @@ static void wakeup_action(int signo, siginfo_t *info, void *ucontext)
 
   if (info->si_value.sival_int != SIGVALUE_INT)
     {
-      printf("wakeup_action: ERROR sival_int=%d expected %d\n",
-              info->si_value.sival_int, SIGVALUE_INT);
       ASSERT(false);
-    }
-  else
-    {
-      printf("wakeup_action: sival_int=%d\n" , info->si_value.sival_int);
     }
 
   if (info->si_signo != WAKEUP_SIGNAL)
     {
-      printf("wakeup_action: ERROR expected si_signo=%d, got=%d\n",
-               WAKEUP_SIGNAL, info->si_signo);
       ASSERT(false);
     }
-
-  printf("wakeup_action: si_code=%d\n" , info->si_code);
-
-  /* Check ucontext_t */
-
-  printf("wakeup_action: ucontext=%p\n" , ucontext);
 
   /* Check sigprocmask */
 
@@ -130,30 +119,12 @@ static void wakeup_action(int signo, siginfo_t *info, void *ucontext)
   status = sigprocmask(SIG_SETMASK, NULL, &oldset);
   if (status != OK)
     {
-      printf("wakeup_action: ERROR sigprocmask failed, status=%d\n",
-              status);
       ASSERT(false);
     }
 
-  if (oldset != allsigs)
+  if (!sigset_isequal(&oldset, &allsigs))
     {
-      printf("wakeup_action: ERROR sigprocmask=%jx expected=%jx\n",
-             (uintmax_t)oldset, (uintmax_t)allsigs);
       ASSERT(false);
-    }
-
-  /* Checkout sem_wait */
-
-  status = sem_wait(&sem2);
-  if (status != 0)
-    {
-      int error = errno;
-      printf("wakeup_action: ERROR sem_wait failed, errno=%d\n" , error);
-      ASSERT(false);
-    }
-  else
-    {
-      printf("wakeup_action: sem_wait() successfully!\n");
     }
 }
 
@@ -193,8 +164,8 @@ static int waiter_main(int argc, char *argv[])
 
 #ifndef SDCC
   printf("waiter_main: oact.sigaction=%p oact.sa_flags=%x "
-         "oact.sa_mask=%jx\n",
-          oact.sa_sigaction, oact.sa_flags, (uintmax_t)oact.sa_mask);
+         "oact.sa_mask=" SIGSET_FMT "\n",
+          oact.sa_sigaction, oact.sa_flags, SIGSET_ELEM(&oact.sa_mask));
 #endif
 
   /* Take the semaphore */
@@ -235,27 +206,6 @@ static int waiter_main(int argc, char *argv[])
   return 0;
 }
 
-static int poster_main(int argc, char *argv[])
-{
-  int status;
-
-  printf("poster_main: Poster started\n");
-
-  status = sem_post(&sem2);
-  if (status != 0)
-    {
-      int error = errno;
-      printf("poster_main: sem_post failed error=%d\n", error);
-      ASSERT(false);
-    }
-
-  printf("poster_main: done\n");
-  FFLUSH();
-
-  thread2exited = true;
-  return 0;
-}
-
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -269,7 +219,7 @@ void sighand_test(void)
 #endif
   struct sched_param param;
   union sigval sigvalue;
-  pid_t waiterpid, posterpid;
+  pid_t waiterpid;
   int status;
 
   printf("sighand_test: Initializing semaphore to 0\n");
@@ -346,20 +296,6 @@ void sighand_test(void)
       task_delete(waiterpid);
     }
 
-  /* Start poster thread  */
-
-  posterpid = task_create("poster", param.sched_priority,
-                           STACKSIZE, poster_main, NULL);
-  if (posterpid == ERROR)
-    {
-      printf("sighand_test: ERROR failed to start poster_main\n");
-      ASSERT(false);
-    }
-  else
-    {
-      printf("sighand_test: Started poster_main pid=%d\n", posterpid);
-    }
-
   /* Wait a bit */
 
   FFLUSH();
@@ -374,12 +310,6 @@ void sighand_test(void)
   if (!thread1exited)
     {
       printf("sighand_test: ERROR waiter task did not exit\n");
-      ASSERT(false);
-    }
-
-  if (!thread2exited)
-    {
-      printf("sighand_test: ERROR poster task did not exit\n");
       ASSERT(false);
     }
 
@@ -398,4 +328,6 @@ void sighand_test(void)
 
   printf("sighand_test: done\n");
   FFLUSH();
+  sem_destroy(&sem2);
+  sem_destroy(&sem1);
 }

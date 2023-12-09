@@ -28,7 +28,6 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
-#include <unistd.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -321,7 +320,8 @@ int main(int argc, FAR char *argv[])
                   goto out;
                 }
 #else
-              ret = readline(&buff[1], sizeof(buff) - 1, stdin, stdout);
+              ret = readline_stream(&buff[1], sizeof(buff) - 1,
+                                    stdin, stdout);
 
               /* Readline normally returns the number of characters read,
                * but will return EOF on end of file or if an error occurs.

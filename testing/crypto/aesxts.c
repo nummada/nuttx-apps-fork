@@ -32,6 +32,7 @@
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/param.h>
 #include <crypto/rijndael.h>
 #include <crypto/cryptodev.h>
 #include <err.h>
@@ -1727,7 +1728,6 @@ struct aes_xts_tv aes_xts_test_vectors[] =
     },
   },
 };
-#define N_VECTORS (sizeof(aes_xts_test_vectors) / sizeof(*aes_xts_test_vectors))
 
 static int match(FAR unsigned char *a, FAR unsigned char *b, size_t len)
 {
@@ -1763,10 +1763,17 @@ static int syscrypt(FAR const unsigned char *key, size_t klen,
   struct session_op session;
   struct crypt_op cryp;
   int cryptodev_fd = -1;
+  int fd = -1;
 
-  if ((cryptodev_fd = open("/dev/crypto", O_RDWR, 0)) < 0)
+  if ((fd = open("/dev/crypto", O_RDWR, 0)) < 0)
     {
       warn("/dev/crypto");
+      goto err;
+    }
+
+  if (ioctl(fd, CRIOGET, &cryptodev_fd) == -1)
+    {
+      warn("CRIOGET");
       goto err;
     }
 
@@ -1802,12 +1809,18 @@ static int syscrypt(FAR const unsigned char *key, size_t klen,
     }
 
   close(cryptodev_fd);
+  close(fd);
   return (0);
 
 err:
   if (cryptodev_fd != -1)
     {
       close(cryptodev_fd);
+    }
+
+  if (fd != -1)
+    {
+      close(fd);
     }
 
   return (-1);
@@ -1824,7 +1837,7 @@ int main(int argc, FAR char **argv)
   int fail = 0;
   size_t i;
 
-  for (i = 0; i < N_VECTORS; i++)
+  for (i = 0; i < nitems(aes_xts_test_vectors); i++)
     {
       tv = &aes_xts_test_vectors[i];
 

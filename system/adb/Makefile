@@ -21,7 +21,7 @@
 include $(APPDIR)/Make.defs
 
 ADBD_URL ?= "https://github.com/spiriou/microADB/archive"
-ADBD_VERSION ?= 5b3c9229e70f74fedfbbf1a0b9000836c9a34789
+ADBD_VERSION ?= b0bc09a7612000186df723f2fe55705b1c2fe873
 
 ADB_DIR := $(APPDIR)/system/adb
 ADB_UNPACKNAME := microADB

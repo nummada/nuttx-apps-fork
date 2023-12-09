@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/time.h>
 
 #include <nuttx/input/buttons.h>
@@ -43,7 +44,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-#define BUTTON_SIGNO 13
+#define BUTTON_SIGNO 32
 #define BUTTON_STACKSIZE 2048
 #define BUTTON_PRIORITY 100
 #define BUTTON_DEVPATH "/dev/buttons"

@@ -27,10 +27,12 @@
 #include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "nsh.h"
 #include "nsh_console.h"
@@ -287,6 +289,7 @@ void nsh_dumpbuffer(FAR struct nsh_vtbl_s *vtbl, FAR const char *msg,
                     FAR const uint8_t *buffer, ssize_t nbytes)
 {
   char line[128];
+  size_t size;
   int ch;
   int i;
   int j;
@@ -294,18 +297,22 @@ void nsh_dumpbuffer(FAR struct nsh_vtbl_s *vtbl, FAR const char *msg,
   nsh_output(vtbl, "%s:\n", msg);
   for (i = 0; i < nbytes; i += 16)
     {
-      sprintf(line, "%04x: ", i);
+      snprintf(line, sizeof(line), "%04x: ", i);
+      size = strlen(line);
 
       for (j = 0; j < 16; j++)
         {
           if (i + j < nbytes)
             {
-              sprintf(&line[strlen(line)], "%02x ", buffer[i + j]);
+              snprintf(&line[size], sizeof(line) - size,
+                       "%02x ", buffer[i + j]);
             }
           else
             {
-              strcpy(&line[strlen(line)], "   ");
+              strlcpy(&line[size], "   ", sizeof(line) - size);
             }
+
+          size += strlen(&line[size]);
         }
 
       for (j = 0; j < 16; j++)
@@ -313,8 +320,9 @@ void nsh_dumpbuffer(FAR struct nsh_vtbl_s *vtbl, FAR const char *msg,
           if (i + j < nbytes)
             {
               ch = buffer[i + j];
-              sprintf(&line[strlen(line)], "%c",
-                      ch >= 0x20 && ch <= 0x7e ? ch : '.');
+              snprintf(&line[size], sizeof(line) - size,
+                       "%c", ch >= 0x20 && ch <= 0x7e ? ch : '.');
+              size += strlen(&line[size]);
             }
         }
 
@@ -411,9 +419,8 @@ int cmd_hexdump(FAR struct nsh_vtbl_s *vtbl, int argc, FAR char **argv)
 
       if (nbytesread < 0)
         {
-          int errval = errno;
           nsh_error(vtbl, g_fmtcmdfailed, "hexdump", "read",
-                     NSH_ERRNO_OF(errval));
+                     NSH_ERRNO_OF(errno));
           ret = ERROR;
           break;
         }

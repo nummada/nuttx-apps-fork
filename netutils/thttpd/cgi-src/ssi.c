@@ -182,6 +182,7 @@ static int get_filename(char *vfilename, char *filename,
                          int fnsize)
 {
   char *cp;
+  int size;
   int vl;
   int fl;
 
@@ -193,6 +194,7 @@ static int get_filename(char *vfilename, char *filename,
 
   vl = strlen(vfilename);
   fl = strlen(filename);
+  size = fl - vl;
 
   if (strcmp(tag, "virtual") == 0)
     {
@@ -204,18 +206,18 @@ static int get_filename(char *vfilename, char *filename,
 
       /* Figure out root using difference between vfilename and filename. */
 
-      if (vl > fl || strcmp(vfilename, &filename[fl - vl]) != 0)
+      if (vl > fl || strcmp(vfilename, &filename[size]) != 0)
         {
           return -1;
         }
 
-      if (fl - vl + strlen(val) >= fnsize)
+      if (size + strlen(val) >= fnsize)
         {
           return -1;
         }
 
-      strncpy(fn, filename, fl - vl);
-      strcpy(&fn[fl - vl], val);
+      strlcpy(fn, filename, fnsize);
+      strlcpy(&fn[size], val, fnsize - size);
     }
   else if (strcmp(tag, "file") == 0)
     {
@@ -230,7 +232,7 @@ static int get_filename(char *vfilename, char *filename,
           return -1;
         }
 
-      strcpy(fn, filename);
+      strlcpy(fn, filename, fnsize);
       cp = strrchr(fn, '/');
       if (cp == (char *)0)
         {
@@ -238,7 +240,8 @@ static int get_filename(char *vfilename, char *filename,
           *cp = '/';
         }
 
-      strcpy(++cp, val);
+      cp++;
+      strlcpy(cp, val, fnsize - (cp - fn));
     }
   else
     {
@@ -314,14 +317,15 @@ static int check_filename(char *filename)
   cp = strrchr(dirname, '/');
   if (cp == (char *)0)
     {
-      strcpy(dirname, ".");
+      strlcpy(dirname, ".", fnl + 1);
     }
   else
     {
       *cp = '\0';
     }
 
-  authname = malloc(strlen(dirname) + 1 + sizeof(CONFIG_AUTH_FILE));
+  fnl = strlen(dirname) + 1 + sizeof(CONFIG_AUTH_FILE);
+  authname = malloc(fnl);
   if (!authname)
     {
       /* out of memory */
@@ -330,7 +334,7 @@ static int check_filename(char *filename)
       return 0;
     }
 
-  sprintf(authname, "%s/%s", dirname, CONFIG_AUTH_FILE);
+  snprintf(authname, fnl, "%s/%s", dirname, CONFIG_AUTH_FILE);
   r = stat(authname, &sb);
 
   free(dirname);
@@ -354,18 +358,18 @@ static int check_filename(char *filename)
 
 static void show_time(time_t t, int gmt)
 {
-  struct tm *tmP;
+  struct tm *tmp;
 
   if (gmt)
     {
-      tmP = gmtime(&t);
+      tmp = gmtime(&t);
     }
   else
     {
-      tmP = localtime(&t);
+      tmp = localtime(&t);
     }
 
-  if (strftime(g_iobuffer2, BUFFER_SIZE, g_timeformat, tmP) > 0)
+  if (strftime(g_iobuffer2, BUFFER_SIZE, g_timeformat, tmp) > 0)
     {
       puts(g_iobuffer2);
     }
@@ -415,8 +419,7 @@ static void do_config(FILE *instream, char *vfilename, char *filename,
 
   if (strcmp(tag, "g_timeformat") == 0)
     {
-      strncpy(g_timeformat, val, TIMEFMT_SIZE - 1);
-      g_timeformat[TIMEFMT_SIZE - 1] = '\0';
+      strlcpy(g_timeformat, val, TIMEFMT_SIZE);
     }
   else if (strcmp(tag, "g_sizefmt") == 0)
     {
@@ -471,11 +474,11 @@ static void do_include(FILE *instream, char *vfilename, char *filename,
     {
       if (strlen(val) < BUFFER_SIZE)
         {
-          strcpy(g_iobuffer2, val);
+          strlcpy(g_iobuffer2, val, sizeof(g_iobuffer2));
         }
       else
         {
-          strcpy(g_iobuffer2, g_iobuffer1);    /* same size, has to fit */
+          strlcpy(g_iobuffer2, g_iobuffer1, sizeof(g_iobuffer2));    /* same size, has to fit */
         }
     }
   else
@@ -483,7 +486,7 @@ static void do_include(FILE *instream, char *vfilename, char *filename,
       if (strlen(vfilename) + 1 + strlen(val) < BUFFER_SIZE)
         {
           char *cp;
-          strcpy(g_iobuffer2, vfilename);
+          strlcpy(g_iobuffer2, vfilename, sizeof(g_iobuffer2));
           cp = strrchr(g_iobuffer2, '/');
           if (cp == (char *)0)
             {
@@ -491,11 +494,12 @@ static void do_include(FILE *instream, char *vfilename, char *filename,
               *cp = '/';
             }
 
-          strcpy(++cp, val);
+          cp++;
+          strlcpy(cp, val, sizeof(g_iobuffer2) - (cp - g_iobuffer2));
         }
       else
         {
-          strcpy(g_iobuffer2, g_iobuffer1);    /* same size, has to fit */
+          strlcpy(g_iobuffer2, g_iobuffer1, sizeof(g_iobuffer2));    /* same size, has to fit */
         }
     }
 
@@ -903,11 +907,12 @@ int main(int argc, char *argv[])
   char *script_name;
   char *path_info;
   char *path_translated;
+  size_t len;
   int errcode = 0;
 
   /* Default formats. */
 
-  strcpy(g_timeformat, "%a %b %e %T %Z %Y");
+  strlcpy(g_timeformat, "%a %b %e %T %Z %Y", sizeof(g_timeformat));
   g_sizefmt = SF_BYTES;
 
   /* The MIME type has to be text/html. */
@@ -931,14 +936,15 @@ int main(int argc, char *argv[])
       path_info = "";
     }
 
-  g_url = (char *)malloc(strlen(script_name) + strlen(path_info) + 1);
+  len = strlen(script_name) + strlen(path_info) + 1;
+  g_url = (char *)malloc(len);
   if (!g_url)
     {
       internal_error("Out of memory.");
       return 2;
     }
 
-  sprintf(g_url, "%s%s", script_name, path_info);
+  snprintf(g_url, len, "%s%s", script_name, path_info);
 
   /* Get the name of the file to parse. */
 

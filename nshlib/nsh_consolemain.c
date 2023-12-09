@@ -24,10 +24,7 @@
 
 #include <nuttx/config.h>
 
-#include <stdio.h>
 #include <assert.h>
-
-#include <sys/boardctl.h>
 
 #include "nsh.h"
 #include "nsh_console.h"
@@ -68,6 +65,10 @@ int nsh_consolemain(int argc, FAR char *argv[])
   int ret;
 
   DEBUGASSERT(pstate != NULL);
+  if (pstate == NULL)
+    {
+      return -ENOMEM;
+    }
 
   /* Execute the session */
 

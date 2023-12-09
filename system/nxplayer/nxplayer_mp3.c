@@ -22,11 +22,15 @@
  * Included Files
  ****************************************************************************/
 
-#include <sys/types.h>
+#include <nuttx/config.h>
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/param.h>
+#include <unistd.h>
 
 #include <nuttx/audio/audio.h>
 
@@ -154,8 +158,7 @@ static int nxplayer_parse_mpeg(uint32_t header, FAR uint32_t *samplerate,
   padding = (header >> 9) & 1;
   mode    = (header >> 6) & 3;
 
-  if (sr_idx >= sizeof(g_mpa_freq_tab) / sizeof(g_mpa_freq_tab[0]) ||
-      br_idx >= 0xf)
+  if (sr_idx >= nitems(g_mpa_freq_tab) || br_idx >= 0xf)
     {
       return -EINVAL;
     }
@@ -235,15 +238,22 @@ int nxplayer_parse_mp3(int fd, FAR uint32_t *samplerate,
       return -ENODATA;
     }
 
-  position = (buffer[6] & ID3V2_BIT_MASK) * 0x200000 +
-             (buffer[7] & ID3V2_BIT_MASK) * 0x4000 +
-             (buffer[8] & ID3V2_BIT_MASK) * 0x80 +
-             (buffer[9] & ID3V2_BIT_MASK) +
-             sizeof(buffer);
+  if (!memcmp(buffer, "ID3", 3))
+    {
+      position = (buffer[6] & ID3V2_BIT_MASK) * 0x200000 +
+                 (buffer[7] & ID3V2_BIT_MASK) * 0x4000 +
+                 (buffer[8] & ID3V2_BIT_MASK) * 0x80 +
+                 (buffer[9] & ID3V2_BIT_MASK) +
+                 sizeof(buffer);
 
-  lseek(fd, position, SEEK_SET);
+      lseek(fd, position, SEEK_SET);
+      read(fd, buffer, 4);
+    }
+  else
+    {
+      position = 0;
+    }
 
-  read(fd, buffer, 4);
   mpa_header = buffer[0] << 24 |
                buffer[1] << 16 |
                buffer[2] << 8  |

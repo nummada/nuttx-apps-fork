@@ -26,7 +26,6 @@
 
 #include <sys/boardctl.h>
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -62,11 +61,6 @@
 
 static void nsh_configstdio(int fd)
 {
-  /* Make sure the stdout, and stderr are flushed */
-
-  fflush(stdout);
-  fflush(stderr);
-
   /* Dup the fd to create standard fd 0-2 */
 
   dup2(fd, 0);
@@ -251,7 +245,22 @@ int nsh_consolemain(int argc, FAR char *argv[])
   /* Initialize the USB serial driver */
 
 #if defined(CONFIG_PL2303) || defined(CONFIG_CDCACM)
-#ifdef CONFIG_CDCACM
+#if defined(CONFIG_USBDEV_COMPOSITE)
+
+  ctrl.usbdev   = BOARDIOC_USBDEV_COMPOSITE;
+  ctrl.action   = BOARDIOC_USBDEV_INITIALIZE;
+  ctrl.instance = 0;
+  ctrl.config   = 0;
+  ctrl.handle   = NULL;
+  ret = boardctl(BOARDIOC_USBDEV_CONTROL, (uintptr_t)&ctrl);
+
+  ctrl.usbdev   = BOARDIOC_USBDEV_COMPOSITE;
+  ctrl.action   = BOARDIOC_USBDEV_CONNECT;
+  ctrl.instance = 0;
+  ctrl.config   = 0;
+  ctrl.handle   = &handle;
+
+#elif defined(CONFIG_CDCACM)
 
   ctrl.usbdev   = BOARDIOC_USBDEV_CDCACM;
   ctrl.action   = BOARDIOC_USBDEV_CONNECT;

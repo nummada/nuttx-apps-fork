@@ -1096,7 +1096,7 @@ static int dofor(void)
     }
   else
     {
-      strcpy(g_forstack[nfors].id, id);
+      strlcpy(g_forstack[nfors].id, id, sizeof(g_forstack[nfors].id));
       g_forstack[nfors].nextline = getnextline(g_string);
       g_forstack[nfors].step = stepval;
       g_forstack[nfors].toval = toval;
@@ -2507,7 +2507,8 @@ static FAR struct mb_variable_s *addfloat(FAR const char *id)
   if (vars)
     {
       g_variables = vars;
-      strcpy(g_variables[g_nvariables].id, id);
+      strlcpy(g_variables[g_nvariables].id, id,
+              sizeof(g_variables[g_nvariables].id));
       g_variables[g_nvariables].dval = 0.0;
       g_variables[g_nvariables].sval = NULL;
       g_nvariables++;
@@ -2540,7 +2541,8 @@ static FAR struct mb_variable_s *addstring(FAR const char *id)
   if (vars)
     {
       g_variables = vars;
-      strcpy(g_variables[g_nvariables].id, id);
+      strlcpy(g_variables[g_nvariables].id, id,
+              sizeof(g_variables[g_nvariables].id));
       g_variables[g_nvariables].sval = NULL;
       g_variables[g_nvariables].dval = 0.0;
       g_nvariables++;
@@ -2573,7 +2575,8 @@ static FAR struct mb_dimvar_s *adddimvar(FAR const char *id)
   if (vars)
     {
       g_dimvariables = vars;
-      strcpy(g_dimvariables[g_ndimvariables].id, id);
+      strlcpy(g_dimvariables[g_ndimvariables].id, id,
+              sizeof(g_dimvariables[g_ndimvariables].id));
       g_dimvariables[g_ndimvariables].dval  = NULL;
       g_dimvariables[g_ndimvariables].str   = NULL;
       g_dimvariables[g_ndimvariables].ndims = 0;
@@ -2743,7 +2746,7 @@ static FAR char *strstring(void)
   x = expr();
   match(CPAREN);
 
-  sprintf(g_iobuffer, "%g", x);
+  snprintf(g_iobuffer, sizeof(g_iobuffer), "%g", x);
   answer = mystrdup(g_iobuffer);
   if (!answer)
     {
@@ -2910,8 +2913,7 @@ static FAR char *midstring(void)
       return str;
     }
 
-  strncpy(answer, temp, len);
-  answer[len] = 0;
+  strlcpy(answer, temp, len + 1);
   free(str);
   return answer;
 }
@@ -2970,7 +2972,7 @@ static FAR char *stringstring(void)
 
   for (i = 0; i < N; i++)
     {
-      strcpy(answer + len * i, str);
+      strlcpy(answer + len * i, str, (N - i) * len + 1);
     }
 
   free(str);
@@ -4009,15 +4011,7 @@ static int mystrcount(FAR const char *str, char ch)
 
 static FAR char *mystrdup(FAR const char *str)
 {
-  FAR char *answer;
-
-  answer = malloc(strlen(str) + 1);
-  if (answer)
-    {
-      strcpy(answer, str);
-    }
-
-  return answer;
+  return strdup(str);
 }
 
 /****************************************************************************
@@ -4036,12 +4030,12 @@ static FAR char *mystrconcat(FAR const char *str, FAR const char *cat)
   int len;
   FAR char *answer;
 
-  len = strlen(str) + strlen(cat);
-  answer = malloc(len + 1);
+  len = strlen(str) + strlen(cat) + 1;
+  answer = malloc(len);
   if (answer)
     {
-      strcpy(answer, str);
-      strcat(answer, cat);
+      strlcpy(answer, str, len);
+      strlcat(answer, cat, len);
     }
 
   return answer;

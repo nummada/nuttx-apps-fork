@@ -159,12 +159,6 @@ int nsh_fileapp(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
     }
 #endif
 
-  /* Lock the scheduler in an attempt to prevent the application from
-   * running until waitpid() has been called.
-   */
-
-  sched_lock();
-
   /* Execute the program. posix_spawnp returns a positive errno value on
    * failure.
    */
@@ -204,7 +198,7 @@ int nsh_fileapp(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
             {
               /* Setup up to receive SIGINT if control-C entered. */
 
-              tc = ioctl(stdout->fs_fd, TIOCSCTTY, pid);
+              tc = nsh_ioctl(vtbl, TIOCSCTTY, pid);
             }
 
           /* Wait for the application to exit.  We did lock the scheduler
@@ -260,7 +254,7 @@ int nsh_fileapp(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
 
           if (vtbl->isctty && tc == 0)
             {
-              ioctl(stdout->fs_fd, TIOCNOTTY);
+              nsh_ioctl(vtbl, TIOCNOTTY, 0);
             }
         }
 #  ifndef CONFIG_NSH_DISABLEBG
@@ -295,8 +289,6 @@ int nsh_fileapp(FAR struct nsh_vtbl_s *vtbl, FAR const char *cmd,
         }
 #endif /* !CONFIG_SCHED_WAITPID || !CONFIG_NSH_DISABLEBG */
     }
-
-  sched_unlock();
 
   /* Free attributes and file actions.  Ignoring return values in the case
    * of an error.

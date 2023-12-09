@@ -25,8 +25,8 @@
 #include <nuttx/config.h>
 
 #include <stdlib.h>
-
 #include <ctype.h>
+#include <unistd.h>
 
 #include <nuttx/spi/spi_transfer.h>
 
@@ -124,9 +124,13 @@ int spicmd_exch(FAR struct spitool_s *spitool, int argc, FAR char **argv)
         {
           spitool_printf(spitool, "%02X ", txdata[d]);
         }
-      else
+      else if (spitool->width <= 16)
         {
           spitool_printf(spitool, "%04X ", ((uint16_t *)txdata)[d]);
+        }
+      else
+        {
+          spitool_printf(spitool, "%08" PRIX32 " ", ((uint32_t *)txdata)[d]);
         }
     }
 
@@ -175,9 +179,13 @@ int spicmd_exch(FAR struct spitool_s *spitool, int argc, FAR char **argv)
         {
           spitool_printf(spitool, "%02X ", rxdata[d]);
         }
-      else
+      else if (spitool->width <= 16)
         {
           spitool_printf(spitool, "%04X ", ((uint16_t *)rxdata)[d]);
+        }
+      else
+        {
+          spitool_printf(spitool, "%08" PRIX32 " ", ((uint32_t *)rxdata)[d]);
         }
     }
 

@@ -24,12 +24,13 @@
 
 #include <nuttx/config.h>
 
-#include <sys/stat.h>
-#include <sys/boardctl.h>
+#include <errno.h>
+#include <sched.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <sched.h>
-#include <errno.h>
+#include <sys/boardctl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "nshlib/nshlib.h"
 
@@ -76,7 +77,7 @@ int main(int argc, FAR char *argv[])
    * is wrong.
    */
 
-  fprintf(stderr, "ERROR: nsh_consolemain() returned: %d\n", ret);
+  dprintf(STDERR_FILENO, "ERROR: nsh_consolemain() returned: %d\n", ret);
   ret = 1;
 #endif
 

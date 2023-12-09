@@ -24,15 +24,16 @@
 
 #include <nuttx/config.h>
 
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
+#include <assert.h>
 #include <ctype.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <mqueue.h>
-#include <sched.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <mqueue.h>
+#include <pthread.h>
+#include <sched.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "ostest.h"
 
@@ -48,7 +49,7 @@
 #else
   /* Message length is the size of the message plus the null terminator */
 
-#  define TEST_MSGLEN       (strlen(TEST_MESSAGE)+1)
+#  define TEST_MSGLEN       sizeof(TEST_MESSAGE)
 #endif
 
 #define TEST_SEND_NMSGS     (10)
@@ -97,7 +98,7 @@ static void *sender_thread(void *arg)
   g_send_mqfd = mq_open("mqueue", O_WRONLY | O_CREAT, 0666, &attr);
   if (g_send_mqfd == (mqd_t)-1)
     {
-      printf("sender_thread: ERROR mq_open failed\n");
+      printf("sender_thread: ERROR mq_open failed, errno=%d\n", errno);
       ASSERT(false);
       pthread_exit((pthread_addr_t)1);
     }
@@ -113,8 +114,9 @@ static void *sender_thread(void *arg)
       status = mq_send(g_send_mqfd, msg_buffer, TEST_MSGLEN, 42);
       if (status < 0)
         {
-          printf("sender_thread: ERROR mq_send failure=%d on msg %d\n",
-                 status, i);
+          printf("sender_thread: ERROR mq_send failure=%d on msg %d, "
+                 "errno=%d\n",
+                 status, i, errno);
           ASSERT(false);
           nerrors++;
         }
@@ -128,7 +130,7 @@ static void *sender_thread(void *arg)
 
   if (mq_close(g_send_mqfd) < 0)
     {
-      printf("sender_thread: ERROR mq_close failed\n");
+      printf("sender_thread: ERROR mq_close failed, errno=%d\n", errno);
       ASSERT(false);
     }
   else
@@ -170,7 +172,7 @@ static void *receiver_thread(void *arg)
   g_recv_mqfd = mq_open("mqueue", O_RDONLY | O_CREAT, 0666, &attr);
   if (g_recv_mqfd == (mqd_t)-1)
     {
-      printf("receiver_thread: ERROR mq_open failed\n");
+      printf("receiver_thread: ERROR mq_open failed, errno=%d\n", errno);
       ASSERT(false);
       pthread_exit((pthread_addr_t)1);
     }
