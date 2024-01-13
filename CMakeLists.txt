@@ -42,6 +42,20 @@ add_subdirectory(audioutils)
 add_subdirectory(benchmarks)
 add_subdirectory(boot)
 add_subdirectory(canutils)
+# Aici spunem in `CMakeLists`-ul top level din `apps` ca adaugam si `coaputils`
+# in acelasi mod in care `crypto` este adaugat.
+
+# Noi de la `crypto` am vazut cum cu ajutorul lui `cmake` se buildeaza o bliblioteca 3-rd party
+# si se adauga in `libapps.a` din `nuttx/staging/...`.
+
+# Am vazut ca `libapps.a` contine fisierele obiect (adica bibliteca statica `libsodium`) uitandu-ne
+# cu `readelf -h staging/libapps.a | grep "File"`.
+
+# Acum ce ramane de facut, e de duplicat logica de build a lui `libsodium` pentru `libcoap`.
+# Exact la fel cum pt `libcoap` avem nev de download la source code si build, exact asa se intampla
+# deja pt `crypto/libsodium`.
+
+add_subdirectory(coaputils)
 add_subdirectory(crypto)
 add_subdirectory(fsutils)
 add_subdirectory(games)

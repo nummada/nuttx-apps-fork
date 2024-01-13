@@ -14,7 +14,7 @@ if EXAMPLES_COAP
 
 config EXAMPLES_COAP_PROGNAME
 	string "Program name"
-	default "coap"
+	default "coap_example_plua_mea"
 	---help---
 		This is the name of the program that will be used when the NSH ELF
 		program is installed.

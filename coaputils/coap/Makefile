@@ -20,6 +20,10 @@
 
 include $(APPDIR)/Make.defs
 
+$(info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)
+$(info ~~~~coaputils/coap/Makefile~~~~)
+$(info ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)
+
 COAP_URL ?= "https://github.com/obgm/libcoap/archive"
 COAP_VERSION ?= afbac63b283bcd96665bff7107f2b83edce4f228
 
@@ -29,7 +33,7 @@ $(COAP_UNPACKNAME):
 	@echo "Downloading: $(COAP_UNPACKNAME)"
 	$(Q) curl -O -L $(COAP_URL)/$(COAP_VERSION).zip
 	$(Q) mkdir $(COAP_UNPACKNAME)
-	$(Q) unzip -o $(COAP_VERSION).zip -d $(COAP_UNPACKNAME)
+	$(Q) unzip -q -o $(COAP_VERSION).zip -d $(COAP_UNPACKNAME)
 	$(Q) mv $(COAP_UNPACKNAME)/libcoap-$(COAP_VERSION)/* $(COAP_UNPACKNAME)
 	$(Q) rm -r $(COAP_UNPACKNAME)/libcoap-$(COAP_VERSION)
 	$(call DELFILE, $(COAP_VERSION).zip)
@@ -37,12 +41,6 @@ $(COAP_UNPACKNAME):
 # Files
 
 # Build COAP using coap specific build system
-
-$(info Salut bossean!!!!)
-
-# CSRCS	= minmea/minmea.c
-# CFLAGS += -std=c99
-
 
 COAP_CURRENT_DIR := $(shell pwd)
 COAP_UTILS_DIR := $(COAP_CURRENT_DIR)/..
@@ -56,6 +54,11 @@ COAP_DELDIR += lib
 
 
 build-$(COAP_UNPACKNAME): $(COAP_UNPACKNAME)
+
+	@(echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)
+	@(echo ~~~~~Building coap library~~~~~)
+	@(echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)
+
 	@(echo "Building coap library")
 	mkdir -p $(COAP_CURRENT_DIR)/install_coap
 	./$(COAP_UNPACKNAME)/autogen.sh
@@ -66,13 +69,18 @@ build-$(COAP_UNPACKNAME): $(COAP_UNPACKNAME)
 # idk, I guess x86_64 (local system architecture)
 	cd $(COAP_UNPACKNAME) && \
 		./configure \
+			-q \
 			--disable-documentation \
 			--disable-shared \
 			--disable-dtls \
 			--prefix=$(COAP_CURRENT_DIR)/install_coap \
 			--includedir=$(COAP_UTILS_INCLUDE_DIR) \
 			--libdir=$(COAP_UTILS_LIB_DIR) && \
-		make install
+		CC=$(CC) make -s install
+	
+	@(echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)
+	@(echo ~~Building coap library DONE~~~)
+	@(echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~)
 
 # TODO 1: When is `LDLIBS` used? Because I need to link `libcoap-3.a` into the final executable
 # LDLIBS += -l$(COAP_UTILS_LIB_DIR)/libcoap-3.a

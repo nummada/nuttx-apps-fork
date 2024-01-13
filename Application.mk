@@ -94,6 +94,9 @@ ifneq ($(BUILD_MODULE),y)
 endif
 
 ifneq ($(strip $(PROGNAME)),)
+#   $(Q) echo "strip PROGNAME $(PROGNAME)"
+#   $(Q) echo "Aici se buildeaza libcoap example?? $(MAINCOBJ)"
+  $(info strip PROGNAME $(PROGNAME))
   PROGOBJ := $(MAINCOBJ) $(MAINCXXOBJ) $(MAINRUSTOBJ)
   PROGLIST := $(addprefix $(BINDIR)$(DELIM),$(PROGNAME))
   REGLIST := $(addprefix $(BUILTIN_REGISTRY)$(DELIM),$(addsuffix .bdat,$(PROGNAME)))
@@ -177,6 +180,7 @@ endef
 
 define ELFLD
 	$(ECHO_BEGIN)"LD: $2 "
+	$(Q) echo "REGULA DE LD ami bag pula"
 	$(Q) $(LD) $(LDELFFLAGS) $(LDLIBPATH) $(ARCHCRT0OBJ) $1 $(LDSTARTGROUP) $(LDLIBS) $(LDENDGROUP) -o $2
 	$(ECHO_END)
 endef
@@ -255,6 +259,7 @@ $(MAINCXXOBJ): %$(CXXEXT)$(SUFFIX)$(OBJEXT): %$(CXXEXT)
 		$(call ELFCOMPILEXX, $<, $@), $(call COMPILEXX, $<, $@))
 
 $(MAINCOBJ): %.c$(SUFFIX)$(OBJEXT): %.c
+	$(Q) echo "Aici se buildeaza libcoap example?? $(MAINCOBJ)"
 	$(eval $<_CFLAGS += ${DEFINE_PREFIX}main=$(addsuffix _main,$(PROGNAME_$@)))
 	$(eval $<_CELFFLAGS += ${DEFINE_PREFIX}main=$(addsuffix _main,$(PROGNAME_$@)))
 	$(if $(and $(CONFIG_BUILD_LOADABLE),$(CELFFLAGS)), \
@@ -280,6 +285,7 @@ ifeq ($(DO_REGISTRATION),y)
 
 $(REGLIST): $(DEPCONFIG) Makefile
 	$(eval PROGNAME_$@ := $(basename $(notdir $@)))
+	@(echo "Face REGLIST: $(REGLIST): $(DEPCONFIG) Makefile")
 ifeq ($(CONFIG_SCHED_USER_IDENTITY),y)
 	$(call REGISTER,$(PROGNAME_$@),$(PRIORITY_$@),$(STACKSIZE_$@),$(if $(BUILD_MODULE),,$(PROGNAME_$@)_main),$(UID_$@),$(GID_$@),$(MODE_$@))
 else

@@ -18,4 +18,4 @@
 #
 ############################################################################
 
-include $(wildcard $(APPDIR)/coaputils/*/Make.defs)
+include $(wildcard $(APPDIR)/coaputils/coap/Make.defs)

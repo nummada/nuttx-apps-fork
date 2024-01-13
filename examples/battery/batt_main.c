@@ -143,7 +143,7 @@ void health_report(int health)
         }
         break;
 
-      case BATTERY_HEALTH_COLD:
+      case BATTERY_HEALTH_COLD: 
         {
           printf("Battery is under recommended temperature!\n");
         }

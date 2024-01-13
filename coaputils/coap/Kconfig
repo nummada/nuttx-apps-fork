@@ -5,7 +5,7 @@
 
 config COAPUTILS_COAP_LIB
 	bool "Coap Library"
-	default n
+	default y
 	---help---
 		TODO coap lib
 

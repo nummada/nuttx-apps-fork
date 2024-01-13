@@ -84,7 +84,7 @@ DEPCONFIG = $(TOPDIR)$(DELIM).config
 ifeq ($(CONFIG_WINDOWS_NATIVE),y)
 ifeq ($(CONFIG_SCHED_USER_IDENTITY),y)
 define REGISTER
-	$(Q) echo Register: $1
+	$(Q) echo Register 1: $1
 	$(Q) echo { "$(subst ",,$(1))", $2, $3, $(patsubst ,0,$(subst ",,$(4))), $(patsubst ,0,$(5)), $(patsubst ,0,$(6)), $(patsubst ,0555,$(7))}, > "$(BUILTIN_REGISTRY)$(DELIM)$1.bdat"
 	$(Q) echo int $(subst ",,$(4))(int argc, char *argv[]); > "$(BUILTIN_REGISTRY)$(DELIM)$1.pdat"
 
@@ -92,7 +92,7 @@ define REGISTER
 endef
 else
 define REGISTER
-	$(Q) echo Register: $1
+	$(Q) echo Register 2: $1
 	$(Q) echo { "$(subst ",,$(1))", $2, $3, $(subst ",,$(4)) }, > "$(BUILTIN_REGISTRY)$(DELIM)$1.bdat"
 	$(Q) echo int $(subst ",,$(4))(int argc, char *argv[]); > "$(BUILTIN_REGISTRY)$(DELIM)$1.pdat"
 
@@ -102,6 +102,7 @@ endif
 else
 ifeq ($(CONFIG_SCHED_USER_IDENTITY),y)
 define REGISTER
+	$(Q) echo "Register 3: $1"
 	$(Q) echo "{ \"$1\", $2, $3, $(patsubst ,0,$(4)), $(patsubst ,0,$(5)), $(patsubst ,0,$(6)), $(patsubst ,0555,$(7)) }," > "$(BUILTIN_REGISTRY)$(DELIM)$1.bdat"
 	$(Q) if [ ! -z $4 ]; then \
 	        echo "int $4(int argc, char *argv[]);" > "$(BUILTIN_REGISTRY)$(DELIM)$1.pdat"; \
@@ -110,7 +111,7 @@ define REGISTER
 endef
 else
 define REGISTER
-	$(Q) echo "Register: $1"
+	$(Q) echo "Register 4: $1"
 	$(Q) echo "{ \"$1\", $2, $3, $4 }," > "$(BUILTIN_REGISTRY)$(DELIM)$1.bdat"
 	$(Q) if [ ! -z $4 ]; then \
 	        echo "int $4(int argc, char *argv[]);" > "$(BUILTIN_REGISTRY)$(DELIM)$1.pdat"; \

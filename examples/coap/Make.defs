@@ -19,5 +19,7 @@
 ############################################################################
 
 ifneq ($(CONFIG_EXAMPLES_COAP),)
+EXTRA_LIBS += $(APPDIR)/coaputils/coap/lib/libcoap-3.a
+# EXTRA_LIBPATHS += -L$(APPDIR)/coaputils/coap/lib
 CONFIGURED_APPS += $(APPDIR)/examples/coap
 endif

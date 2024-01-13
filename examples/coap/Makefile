@@ -22,14 +22,14 @@ include $(APPDIR)/Make.defs
 
 # coap built-in application info
 
+
 PROGNAME  = $(CONFIG_EXAMPLES_COAP_PROGNAME)
 PRIORITY  = $(CONFIG_EXAMPLES_COAP_PRIORITY)
 STACKSIZE = $(CONFIG_EXAMPLES_COAP_STACKSIZE)
 MODULE    = $(CONFIG_EXAMPLES_COAP)
 
 CFLAGS += -I$(APPDIR)$(DELIM)coaputils$(DELIM)coap/include
-# TODO: Where do I `-I
-# LDLIBS += -l$(APPDIR)$(DELIM)coaputils$(DELIM)coap/libs/libcoap-3.a
+# CLFAGS += -lcoap
 MAINSRC = coap_main.c
 
 include $(APPDIR)/Application.mk

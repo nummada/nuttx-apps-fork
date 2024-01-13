@@ -48,6 +48,7 @@ all: $(BIN)
 .PHONY: context clean_context context_all register register_all
 .PRECIOUS: $(BIN)
 
+# Astea genereaza reguli de tip `$(APPDIR)/coaputils/coap-{all,install,...}`
 $(foreach SDIR, $(CONFIGURED_APPS), $(eval $(call SDIR_template,$(SDIR),all)))
 $(foreach SDIR, $(CONFIGURED_APPS), $(eval $(call SDIR_template,$(SDIR),install)))
 $(foreach SDIR, $(CONFIGURED_APPS), $(eval $(call SDIR_template,$(SDIR),context)))
@@ -69,9 +70,13 @@ IMPORT_TOOLS = $(MKDEP) $(INCDIR)
 
 ifeq ($(CONFIG_BUILD_KERNEL),y)
 
+
+$(info Salut NU AR TREBUI SA VAD INFO-UL ASTA PENTRU CA CONFIG_BUILD_KERNEL = $(CONFIG_BUILD_KERNEL))
+
 install: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_install)
 
 $(BIN): $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
+	@(echo "Ami bag pula wa")
 
 .import: $(BIN)
 	$(Q) install libapps.a $(APPDIR)$(DELIM)import$(DELIM)libs
@@ -85,6 +90,8 @@ import: $(IMPORT_TOOLS)
 
 else
 
+$(info Salut Dar ar trebui sa-l vad pe asta !!!! )
+
 # In FLAT and protected modes, the modules have already been created.  A
 # symbol table is required.
 
@@ -93,20 +100,24 @@ ifeq ($(CONFIG_WINDOWS_NATIVE),y)
 $(BIN): $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
 else
 $(BIN): $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
+	@(echo Ceva BIN cu LINK_WASM)
 	$(call LINK_WASM)
 endif
 
 else
 
 $(SYMTABSRC): $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_all)
+	@(echo "Ami bag pula wa -- 1")
 	$(Q) $(MAKE) install
 	$(Q) $(APPDIR)$(DELIM)tools$(DELIM)mksymtab.sh $(BINDIR) >$@.tmp
 	$(Q) $(call TESTANDREPLACEFILE, $@.tmp, $@)
 
 $(SYMTABOBJ): %$(OBJEXT): %.c
+	@(echo "Ami bag pula wa -- 2")
 	$(call COMPILE, $<, $@, -fno-lto -fno-builtin)
 
 $(BIN): $(SYMTABOBJ)
+	@(echo "Ami bag pula wa -- 3")
 	$(call ARLOCK, $(call CONVERT_PATH,$(BIN)), $^)
 	$(call LINK_WASM)
 
@@ -119,7 +130,12 @@ install: $(foreach SDIR, $(CONFIGURED_APPS), $(SDIR)_install)
 HEAD_OBJ += $(wildcard $(APPDIR)$(DELIM)import$(DELIM)startup$(DELIM)*$(OBJEXT))
 HEAD_OBJ += $(wildcard $(APPDIR)$(DELIM)builtin$(DELIM)*$(OBJEXT))
 
+# $(Q) echo "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEXTRA_LIBS: $(EXTRA_LIBS)"
+
+$(info Salut bossean!!!! AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEXTRA_LIBS: $(EXTRA_LIBS))
+
 .import: $(BIN) install
+	$(info Salut, vreau sa vad asta ca se apeleaza ... BIN=$(BIN), EXTRA_LIBS=$(EXTRA_LIBS))
 	$(Q) echo "LD: nuttx"
 	$(Q) $(LD) --entry=__start $(LDFLAGS) $(LDLIBPATH) $(EXTRA_LIBPATHS) \
 	  -L$(APPDIR)$(DELIM)import$(DELIM)scripts -T$(LDNAME) \
