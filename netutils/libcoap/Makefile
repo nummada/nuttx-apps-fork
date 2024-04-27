@@ -20,22 +20,23 @@
 
 include $(APPDIR)/Make.defs
 
-COAP_URL ?= "https://codeload.github.com/obgm/libcoap/zip/refs/tags"
+BRANCH=develop
+COAP_URL ?= "https://github.com/obgm/libcoap/archive/$(BRANCH).zip"
 
-COAP_ZIP = libcoap-$(CONFIG_LIBCOAP_VERSION).zip
+COAP_ZIP = libcoap-$(BRANCH).zip
 
 COAP_UNPACKNAME = libcoap
 UNPACK ?= unzip -q -o
 
 $(COAP_ZIP):
-	@echo "Downloading: $(COAP_URL)/v$(CONFIG_LIBCOAP_VERSION)"
-	$(Q) curl -o $(COAP_ZIP) -L $(COAP_URL)/v$(CONFIG_LIBCOAP_VERSION)
+	@echo "Downloading: $(COAP_URL)"
+	$(Q) curl -o $(COAP_ZIP) -L $(COAP_URL)
 
 $(COAP_UNPACKNAME): $(COAP_ZIP)
 	@echo "Unpacking: $(COAP_ZIP) -> $(COAP_UNPACKNAME)"
 	$(Q) $(UNPACK) $(COAP_ZIP)
 	@echo "Unpacking: $(COAP_ZIP) -> $(COAP_UNPACKNAME)"
-	$(Q) mv libcoap-$(CONFIG_LIBCOAP_VERSION) $(COAP_UNPACKNAME)
+	$(Q) mv libcoap-$(BRANCH) $(COAP_UNPACKNAME)
 	$(Q) touch $(COAP_UNPACKNAME)
 
 # Download and unpack tarball if no git repo found
