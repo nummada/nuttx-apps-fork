@@ -20,7 +20,11 @@ config LIBCOAP_VERSION
 
 config NETUTILS_LIBCOAP_EXAMPLE
 	tristate "Example coap-server and coap-client"
-	default n
+	default y
+
+config MBEDTLS_SSL_COOKIE_C
+	tristate "Needed dependency"
+	default y
 
 if NETUTILS_LIBCOAP_EXAMPLE
 
