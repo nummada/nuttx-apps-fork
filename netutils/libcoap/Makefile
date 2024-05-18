@@ -50,9 +50,26 @@ endif
 
 context:: $(COAP_UNPACKNAME)/include/coap3/coap.h
 
+ifeq ($(COAP_DTLS_DISABLE), 1)
+    DTLS_ARG := --disable-dtls
+    DTLS_MSG := "Disabling DTLS in COAP configuration"
+else
+    DTLS_ARG :=
+    DTLS_MSG := "Enabling DTLS in COAP configuration"
+endif
+ifdef COAP_HOST
+    HOST_ARG := --host $(COAP_HOST)
+	HOST_MSG := "Adding host in COAP configuration: [$(COAP_HOST)]"
+else
+    HOST_ARG :=
+	HOST_MSG := "No host provided in COAP configuration: [$(COAP_HOST)]"
+endif
+
 $(COAP_UNPACKNAME)/include/coap3/coap.h:: $(COAP_UNPACKNAME)
+	@echo "$(DTLS_MSG)"
+	@echo "$(HOST_MSG)"
 	cd $(COAP_UNPACKNAME) && ./autogen.sh && \
-	./configure --disable-doxygen --disable-manpages
+	./configure $(HOST_ARG) $(DTLS_ARG) --disable-doxygen --disable-manpages
 
 CSRCS  += libcoap/src/coap_address.c
 CSRCS  += libcoap/src/coap_asn1.c
