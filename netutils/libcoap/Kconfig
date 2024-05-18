@@ -34,7 +34,7 @@ config NETUTILS_LIBCOAP_EXAMPLE_PRIORITY
 
 config NETUTILS_LIBCOAP_EXAMPLE_STACKSIZE
 	int "libcoap example stacksize"
-	default 2048
+	default 3072
 
 endif # NETUTILS_LIBCOAP_EXAMPLE
 
