@@ -20,7 +20,11 @@ config LIBCOAP_VERSION
 
 config NETUTILS_LIBCOAP_EXAMPLE
 	tristate "Example coap-server and coap-client"
-	default n
+	default y
+
+config MBEDTLS_SSL_COOKIE_C
+	tristate "Needed dependency"
+	default y
 
 if NETUTILS_LIBCOAP_EXAMPLE
 
@@ -30,7 +34,7 @@ config NETUTILS_LIBCOAP_EXAMPLE_PRIORITY
 
 config NETUTILS_LIBCOAP_EXAMPLE_STACKSIZE
 	int "libcoap example stacksize"
-	default 2048
+	default 3072
 
 endif # NETUTILS_LIBCOAP_EXAMPLE
 
